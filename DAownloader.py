@@ -4,10 +4,16 @@
 # Author: Nobody... >.>
 # Date: 18/12/2011 (dd/mm/yyyy)
 
-# Uses urllib for downloading, lxml for parsing and sys for command line arguments.
+# Uses urllib for downloading, lxml for parsing and sys for command line 
+# arguments.
 import urllib, lxml, sys
 from urllib.request import urlopen
 from lxml import html
+
+if __name__ == '__main__':
+    printstuff = True
+else:
+    printstuff = False
 
 def getImageUrlFromPage(page):
     """Gets a deviantart image URL from a page returned by lxml."""
@@ -34,13 +40,14 @@ def getDownloadUrlFromPage(page):
         return False
 
 def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
-    """Uses the gallery page specified by 'inurl' to acquire image URLs. The 'increment' 
-    argument is used to go through each page of the gallery. If preferDownloads is True, will use the download links provided by pages.
+    """Uses the gallery page specified by 'inurl' to acquire image URLs. The 
+    'increment' argument is used to go through each page of the gallery. If 
+    preferDownloads is True, will use the download links provided by pages. 
     Returns a set of URLs."""
 
     # Use sets because they're good for bunches of unique stuff.
     lpurls = set() # List page URLs (gallery pages)
-    fpurls = set() # File page URLs (pages for individual art pieces. Usually flash or text)
+    fpurls = set() # File page URLs (pages for individual art pieces.)
 
     initpage = urlopen(inurl)
 
@@ -53,9 +60,14 @@ def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
     # Populate lpurls with the gallery page URLs
     for x in range(0, endoffset, 24):
         lpurls.add(inurl+'?offset='+str(x))
-    
+    if printstuff:
+        print(str(len(lpurls))+' pages to search for URLs...')
     # Get page links from thumbnail hrefs
+    pagenum = 1
     for url in lpurls:
+        if printstuff:
+            print('Parsing page number '+str(pagenum)+'...')
+            pagenum += 1
         page = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
         thumbels = page.find_class('thumb')
         for thumbel in thumbels:
@@ -63,16 +75,23 @@ def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
                 fpurls.add(thumbel.attrib['href'])
             except KeyError:
                 print('No href for: '+str(thumbel.attrib))
-    # Return a list containing the results.    
+    # Return a list containing the results.
+    if printstuff:
+        print('There are '+str(len(fpurls))+' pages to parse for image urls...')
     return getUrlsFromPages(fpurls, preferDownloads)
 
 def getUrlsFromPages(inurls, preferDownloads=False):
-    """Gets image URLs from the given pages and returns the set of them. If preferDownloads is 
-    True, will try and get DA's download link and use that (Uses expanded image on failure)."""
+    """Gets image URLs from the given pages and returns the set of them. If 
+    preferDownloads is True, will try and get DA's download link and use that 
+    (Uses expanded image on failure)."""
     # I like sets.
     outurls = set()
-    
+    pagenum = 1
+    pages = str(len(inurls))+'...'
     for url in inurls:
+        if printstuff:
+            print('Parsing page '+str(pagenum)+'/'+pages)
+            pagenum += 1
         try:
             page = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
         except:
@@ -112,4 +131,5 @@ if __name__ == '__main__':
         print('Done.\n')
 
     else:
-        print('Usage: python3 DAownloader.py <Full DA URL (with http)> <where to store the image URL list>\n')
+        print('Usage: python3 DAownloader.py <Full DA URL (with http)> \
+        <where to store the image URL list>\n')

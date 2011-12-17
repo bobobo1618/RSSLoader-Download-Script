@@ -17,6 +17,9 @@ This is a script to create a list of links to images in deviantART galleries/fav
 
 - Hit enter
 
+Note that this will take a long time depending on the size of the gallery. Since it downloads and parses every page in the gallery in order to 
+obtain the image URL, it is quite slow.
+
 You will be left with a file with the name you specified and filled with the URLs of all the images in the gallery you gave. To download them all, I suggest [Aria2](http://aria2.sourceforge.net/). To use it do do the downloading:
 
 - Put the aria2 file in the same directory as your list
