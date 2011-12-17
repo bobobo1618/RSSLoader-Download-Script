@@ -20,3 +20,7 @@ You will be left with a file with the name you specified and filled with the URL
 - Type 'aria2 -i <filename of your list here> -d <output directory name here>'
 
 I'm writing this for Windows users. If you're a Linux user you can figure it out. If you're a Mac user, complain to me about it and I'll probably write something for you too :) I don't have a Mac though so I can't really do anything at the moment...
+
+# License
+
+Give me credit if you use my code. DA may have problems with us using this but I couldn't find anything on the subject.
