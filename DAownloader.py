@@ -9,13 +9,37 @@ import urllib, lxml, sys
 from urllib.request import urlopen
 from lxml import html
 
-def getUrlsFromThumbsInGallery(inurl, increment=24):
+def getImageUrlFromPage(page):
+    """Gets a deviantart image URL from a page returned by lxml."""
+    try:
+        # This is the element id used for images you can expand.
+        imgel = page.get_element_by_id('gmi-ResViewSizer_fullimg')
+    except KeyError:
+        try:
+            # Just in case you can't expand.
+            imgel = page.get_element_by_id('gmi-ResViewSizer_img')
+        except KeyError:
+            return False
+    try:
+        return(imgel.attrib['src'])
+    except:
+        return False
+
+def getDownloadUrlFromPage(page):
+    """Gets a deviantart download URL from a page returned by lxml."""
+    try:
+        # This is the element id used for the download button.
+        return page.get_element_by_id('download-button').attrib['href']
+    except KeyError:
+        return False
+
+def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
     """Uses the gallery page specified by 'inurl' to acquire image URLs. The 'increment' 
-    argument is used to go through each page of the gallery. Returns a dictionary."""
+    argument is used to go through each page of the gallery. If preferDownloads is True, will use the download links provided by pages.
+    Returns a set of URLs."""
 
     # Use sets because they're good for bunches of unique stuff.
     lpurls = set() # List page URLs (gallery pages)
-    ifurls = set() # Image file URLs
     fpurls = set() # File page URLs (pages for individual art pieces. Usually flash or text)
 
     initpage = urlopen(inurl)
@@ -30,47 +54,45 @@ def getUrlsFromThumbsInGallery(inurl, increment=24):
     for x in range(0, endoffset, 24):
         lpurls.add(inurl+'?offset='+str(x))
     
-    # Rip images from each gallery page using the super_img attribute on the thumb elements.
-    # If such a thing is not possible, get the thumb href and add it to the file page set.
+    # Get page links from thumbnail hrefs
     for url in lpurls:
         page = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
         thumbels = page.find_class('thumb')
         for thumbel in thumbels:
             try:
-                ifurls.add(thumbel.attrib['super_img'])
+                fpurls.add(thumbel.attrib['href'])
             except KeyError:
-                try:
-                    fpurls.add(thumbel.attrib['href'])
-                except KeyError:
-                    print('No super_img or href for: '+str(thumbel.attrib))
-    # Return a dictionary containing the results.    
-    return {'ifurls':ifurls, 'fpurls':fpurls}
+                print('No href for: '+str(thumbel.attrib))
+    # Return a list containing the results.    
+    return getUrlsFromPages(fpurls, preferDownloads)
 
-def getUrlsFromPages(inurls):
-    """Gets image URLs from the given pages and returns the set of them."""
+def getUrlsFromPages(inurls, preferDownloads=False):
+    """Gets image URLs from the given pages and returns the set of them. If preferDownloads is 
+    True, will try and get DA's download link and use that (Uses expanded image on failure)."""
     # I like sets.
     outurls = set()
+    
     for url in inurls:
         try:
             page = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
         except:
             print('Failed on '+url)
             continue
-        try:
-            # This is the element id used for images you can expand.
-            imgel = page.get_element_by_id('gmi-ResViewSizer_fullimg')
-        except KeyError:
-            try:
-                # Just in case you can't expand.
-                imgel = page.get_element_by_id('gmi-ResViewSizer_img')
-            except KeyError:
-                print('No image found for '+url)
-                continue
-        try:
-            outurls.add(imgel.attrib['src'])
-        except:
-            print('Image found, but no SRC for '+url)
-            continue
+
+        if not preferDownloads:
+            res = getImageUrlFromPage(page)
+            if res:
+                outurls.add(res)
+        else:
+            res = getDownloadUrlFromPage(page)
+            if res:
+                outurls.add(res)
+            else:
+                res = getImageUrlFromPage(page)
+                if res:
+                    outurls.add(res)
+                else:
+                    print('Nothing for '+url)
     return outurls
 
 
@@ -79,10 +101,7 @@ if __name__ == '__main__':
         outname = sys.argv[-1]
         inurl = sys.argv[-2]
 
-        results = getUrlsFromThumbsInGallery(inurl)
-
-        ifurls = results['ifurls']
-        ifurls = ifurls.union(getUrlsFromPages(results['fpurls']))
+        ifurls = getUrlsFromThumbsInGallery(inurl)
 
         outfile = open(sys.argv[-1], 'w')
         
