@@ -82,7 +82,7 @@ if __name__ == '__main__':
         results = getUrlsFromThumbsInGallery(inurl)
 
         ifurls = results['ifurls']
-        ifurls.union(getUrlsFromPages(results['fpurls']))
+        ifurls = ifurls.union(getUrlsFromPages(results['fpurls']))
 
         outfile = open(sys.argv[-1], 'w')
         
