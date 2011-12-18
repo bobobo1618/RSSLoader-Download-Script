@@ -20,6 +20,10 @@ nsmap = {'atom': 'http://www.w3.org/2005/Atom', 'media':'http://search.yahoo.com
 
 valimagere = re.compile(r'http://fc.*')
 
+def getRssFromPageUrl(url):
+    x = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
+    return x.find('.//link[@rel="alternate"][@type="application/rss+xml"]').attrib['href']
+
 def getImageUrlFromPage(page):
     """Gets a deviantart image URL from a page returned by lxml."""
     try:
