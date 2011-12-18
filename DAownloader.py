@@ -123,13 +123,26 @@ def getUrlsFromRss(inurl, preferDownloads=False):
     ifurls = set()
     nextUrl = inurl
     while nextUrl:
-        rss = urlopen(nextUrl)
+        try:
+            rss = urlopen(nextUrl)
+        except:
+            print('Failed on '+nextUrl)
+            break
         tree = etree.parse(rss)
         root = tree.getroot()
         channel = root.getchildren()[0]
         items = channel.findall('./item', namespaces=nsmap)
         for item in items:
-            ifurls.add(getLinkFromItemElement(item, preferDownloads))
+            url = getLinkFromItemElement(item, preferDownloads)
+            if url:
+                ifurls.add()
+            else:
+                print('No URL found for '+item.find('title').text)
+        try:
+            nextUrl = channel.find('atom:link[@rel="next"]', namespaces=nsmap).attrib['href']
+        except:
+            nextUrl = ''
+    return ifurls
 
 def getUrlsFromPages(inurls, preferDownloads=False):
     """Gets image URLs from the given pages and returns the set of them. If 
