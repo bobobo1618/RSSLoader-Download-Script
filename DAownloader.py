@@ -85,7 +85,7 @@ def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
         print('There are '+str(len(fpurls))+' pages to parse for image urls...')
     return getUrlsFromPages(fpurls, preferDownloads)
 
-def getLinkFromItemElement(element, preferDownloads=False):
+def getUrlFromItemElement(element, preferDownloads=False):
     pageUrl = element.getparent().find('./link').text
     url = ''
     if preferDownloads:
@@ -133,7 +133,7 @@ def getUrlsFromRss(inurl, preferDownloads=False):
         channel = root.getchildren()[0]
         items = channel.findall('./item', namespaces=nsmap)
         for item in items:
-            url = getLinkFromItemElement(item, preferDownloads)
+            url = getUrlFromItemElement(item, preferDownloads)
             if url:
                 ifurls.add()
             else:
