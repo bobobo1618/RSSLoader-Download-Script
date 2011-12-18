@@ -86,7 +86,7 @@ def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
     return getUrlsFromPages(fpurls, preferDownloads)
 
 def getUrlFromItemElement(element, preferDownloads=False):
-    pageUrl = element.getparent().find('./link').text
+    pageUrl = element.find('./link').text
     url = ''
     if preferDownloads:
         try:
