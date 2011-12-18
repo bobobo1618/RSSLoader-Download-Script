@@ -126,6 +126,7 @@ def getUrlFromItemElement(element, preferDownloads=False):
 def getUrlsFromRss(inurl, preferDownloads=False):
     ifurls = set()
     nextUrl = inurl
+    pagenum = 0
     while nextUrl:
         try:
             rss = urlopen(nextUrl)
@@ -146,6 +147,8 @@ def getUrlsFromRss(inurl, preferDownloads=False):
             nextUrl = channel.find('atom:link[@rel="next"]', namespaces=nsmap).attrib['href']
         except:
             nextUrl = ''
+        pagenum = pagenum + 1
+        print ('Page {0} done.'.format(pagenum))
     return ifurls
 
 def getUrlsFromPages(inurls, preferDownloads=False):
@@ -188,7 +191,9 @@ if __name__ == '__main__':
         outname = sys.argv[-1]
         inurl = sys.argv[-2]
 
-        ifurls = getUrlsFromThumbsInGallery(inurl)
+        rssUrl = getRssFromPageUrl(inurl)
+        ifurls = getUrlsFromRss(rssUrl)
+        #ifurls = getUrlsFromThumbsInGallery(inurl)
 
         outfile = open(sys.argv[-1], 'w')
         
