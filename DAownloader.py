@@ -98,11 +98,11 @@ def getUrlFromItemElement(element, preferDownloads=False):
                 if valimagere.match(url):
                     return url
                 else:
-                    page = lxml.parse(urlopen(pageUrl))
+                    page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
                     url = getImageUrlFromPage(page)
                     return url
             except:
-                page = lxml.parse(urlopen(pageUrl))
+                page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
                 url = getImageUrlFromPage(page)
                 return url
     else:
@@ -111,11 +111,11 @@ def getUrlFromItemElement(element, preferDownloads=False):
             if valimagere.match(url):
                 return url
             else:
-                page = lxml.parse(urlopen(pageUrl))
+                page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
                 url = getImageUrlFromPage(page)
                 return url
         except:
-            page = lxml.parse(urlopen(pageUrl))
+            page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
             url = getImageUrlFromPage(page)
             return url
 
@@ -135,7 +135,7 @@ def getUrlsFromRss(inurl, preferDownloads=False):
         for item in items:
             url = getUrlFromItemElement(item, preferDownloads)
             if url:
-                ifurls.add()
+                ifurls.add(url)
             else:
                 print('No URL found for '+item.find('title').text)
         try:
