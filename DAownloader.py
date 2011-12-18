@@ -6,7 +6,7 @@
 
 # Uses urllib for downloading, lxml for parsing and sys for command line 
 # arguments.
-import urllib, lxml, sys
+import urllib, lxml, sys, re
 from urllib.request import urlopen
 from lxml import html
 from lxml import etree
@@ -17,6 +17,8 @@ else:
     printstuff = False
 
 nsmap = {'atom': 'http://www.w3.org/2005/Atom', 'media':'http://search.yahoo.com/mrss/'}
+
+valimagere = re.compile(r'http://fc.*')
 
 def getImageUrlFromPage(page):
     """Gets a deviantart image URL from a page returned by lxml."""
@@ -83,17 +85,52 @@ def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
         print('There are '+str(len(fpurls))+' pages to parse for image urls...')
     return getUrlsFromPages(fpurls, preferDownloads)
 
+def getLinkFromItemElement(element, preferDownloads=False):
+    pageUrl = element.getparent().find('./link').text
+    url = ''
+    if preferDownloads:
+        try:
+            url = element.find('./media:content[@medium="document"]', namespaces=nsmap).attrib['url']
+            return url
+        except:
+            try:
+                url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
+                if valimagere.match(url):
+                    return url
+                else:
+                    page = lxml.parse(urlopen(pageUrl))
+                    url = getImageUrlFromPage(page)
+                    return url
+            except:
+                page = lxml.parse(urlopen(pageUrl))
+                url = getImageUrlFromPage(page)
+                return url
+    else:
+        try:
+            url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
+            if valimagere.match(url):
+                return url
+            else:
+                page = lxml.parse(urlopen(pageUrl))
+                url = getImageUrlFromPage(page)
+                return url
+        except:
+            page = lxml.parse(urlopen(pageUrl))
+            url = getImageUrlFromPage(page)
+            return url
+
 def getUrlsFromRss(inurl, preferDownloads=False):
-    ifurls = []
-    fpurls = []
+    ifurls = set()
     nextUrl = inurl
     while nextUrl:
-        rss = urlopen(inurl)
+        rss = urlopen(nextUrl)
         tree = etree.parse(rss)
         root = tree.getroot()
-        channel = root.getChildren()[0]
+        channel = root.getchildren()[0]
+        items = channel.findall('./item', namespaces=nsmap)
+        for item in items:
+            ifurls.add(getLinkFromItemElement(item, preferDownloads))
 
-        nextUrl = channel.find('.//atom:link[@rel="next"]', namespaces=nsmap)
 def getUrlsFromPages(inurls, preferDownloads=False):
     """Gets image URLs from the given pages and returns the set of them. If 
     preferDownloads is True, will try and get DA's download link and use that 
