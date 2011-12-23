@@ -8,6 +8,7 @@
 # arguments.
 import urllib, lxml, sys, re
 from urllib.request import urlopen
+
 from lxml import html
 from lxml import etree
 
@@ -16,9 +17,20 @@ if __name__ == '__main__':
 else:
     printstuff = False
 
-nsmap = {'atom': 'http://www.w3.org/2005/Atom', 'media':'http://search.yahoo.com/mrss/'}
+valimageres = [re.compile(r'https?://fc.*'), re.compile(r'https?://img\.ponibooru\.org.*')]
+dare = re.compile(r'.*deviantart\.com.*')
+urldomre = re.compile(r'[a-zA-Z]+://([a-zA-Z-\.])/')
 
-valimagere = re.compile(r'http://fc.*')
+def validImageUrl(url):
+    for imgre in valimageres:
+        if imgre.match(url):
+            return True
+    return False
+
+def relToAbsUrl(inurl, relurl):
+    parsedin = list(urllib.parse.urlparse(inurl))
+    parsedin[2] = relurl
+    return parse.urlunparse(parsedin)
 
 def getRssFromPageUrl(url):
     x = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
@@ -48,58 +60,32 @@ def getDownloadUrlFromPage(page):
     except KeyError:
         return False
 
-def getUrlsFromThumbsInGallery(inurl, increment=24, preferDownloads=False):
-    """Uses the gallery page specified by 'inurl' to acquire image URLs. The 
-    'increment' argument is used to go through each page of the gallery. If 
-    preferDownloads is True, will use the download links provided by pages. 
-    Returns a set of URLs."""
-
-    # Use sets because they're good for bunches of unique stuff.
-    lpurls = set() # List page URLs (gallery pages)
-    fpurls = set() # File page URLs (pages for individual art pieces.)
-
-    initpage = urlopen(inurl)
-
-    # Uses lxml.html to parse the document at inurl
-    inithtml = html.document_fromstring(initpage.read().decode('utf-8', 'ignore'))
-
-    # Calculate the offset of the last page
-    endoffset = (int(inithtml.find_class('number')[-1][0].text))*increment
-
-    # Populate lpurls with the gallery page URLs
-    for x in range(0, endoffset, 24):
-        lpurls.add(inurl+'?offset='+str(x))
-    if printstuff:
-        print(str(len(lpurls))+' pages to search for URLs...')
-    # Get page links from thumbnail hrefs
-    pagenum = 1
-    for url in lpurls:
-        if printstuff:
-            print('Parsing page number '+str(pagenum)+'...')
-            pagenum += 1
-        page = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
-        thumbels = page.find_class('thumb')
-        for thumbel in thumbels:
-            try:
-                fpurls.add(thumbel.attrib['href'])
-            except KeyError:
-                print('No href for: '+str(thumbel.attrib))
-    # Return a list containing the results.
-    if printstuff:
-        print('There are '+str(len(fpurls))+' pages to parse for image urls...')
-    return getUrlsFromPages(fpurls, preferDownloads)
-
-def getUrlFromItemElement(element, preferDownloads=False):
+def getUrlFromItemElement(element, preferDownloads=False, daRss=False):
+    nsmap = element.getroottree().getroot().nsmap
     pageUrl = element.find('./link').text
     url = ''
-    if preferDownloads:
-        try:
-            url = element.find('./media:content[@medium="document"]', namespaces=nsmap).attrib['url']
-            return url
-        except:
+    if daRss:
+        if preferDownloads:
+            try:
+                url = element.find('./media:content[@medium="document"]', namespaces=nsmap).attrib['url']
+                return url
+            except:
+                try:
+                    url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
+                    if validImageUrl(url):
+                        return url
+                    else:
+                        page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
+                        url = getImageUrlFromPage(page)
+                        return url
+                except:
+                    page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
+                    url = getImageUrlFromPage(page)
+                    return url
+        else:
             try:
                 url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
-                if valimagere.match(url):
+                if validImageUrl(url):
                     return url
                 else:
                     page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
@@ -111,22 +97,15 @@ def getUrlFromItemElement(element, preferDownloads=False):
                 return url
     else:
         try:
-            url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
-            if valimagere.match(url):
-                return url
-            else:
-                page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
-                url = getImageUrlFromPage(page)
-                return url
+            return element.find('./media:content', namespaces=nsmap).attrib['url']
         except:
-            page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
-            url = getImageUrlFromPage(page)
-            return url
+            return False
 
 def getUrlsFromRss(inurl, preferDownloads=False):
     ifurls = set()
     nextUrl = inurl
     pagenum = 0
+    daRss = bool(dare.match(inurl))
     while nextUrl:
         try:
             rss = urlopen(nextUrl)
@@ -136,62 +115,31 @@ def getUrlsFromRss(inurl, preferDownloads=False):
         tree = etree.parse(rss)
         root = tree.getroot()
         channel = root.getchildren()[0]
+        nsmap = root.nsmap
         items = channel.findall('./item', namespaces=nsmap)
         for item in items:
-            url = getUrlFromItemElement(item, preferDownloads)
+            url = getUrlFromItemElement(item, preferDownloads, daRss)
             if url:
                 ifurls.add(url)
             else:
                 print('No URL found for '+item.find('title').text)
         try:
-            nextUrl = channel.find('atom:link[@rel="next"]', namespaces=nsmap).attrib['href']
+            nextUrl = urllib.parse.urljoin(inurl, channel.find('atom:link[@rel="next"]', namespaces=nsmap).attrib['href'])
         except:
             nextUrl = ''
         pagenum = pagenum + 1
         print ('Page {0} done.'.format(pagenum))
     return ifurls
 
-def getUrlsFromPages(inurls, preferDownloads=False):
-    """Gets image URLs from the given pages and returns the set of them. If 
-    preferDownloads is True, will try and get DA's download link and use that 
-    (Uses expanded image on failure)."""
-    # I like sets.
-    outurls = set()
-    pagenum = 1
-    pages = str(len(inurls))+'...'
-    for url in inurls:
-        if printstuff:
-            print('Parsing page '+str(pagenum)+'/'+pages)
-            pagenum += 1
-        try:
-            page = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
-        except:
-            print('Failed on '+url)
-            continue
-
-        if not preferDownloads:
-            res = getImageUrlFromPage(page)
-            if res:
-                outurls.add(res)
-        else:
-            res = getDownloadUrlFromPage(page)
-            if res:
-                outurls.add(res)
-            else:
-                res = getImageUrlFromPage(page)
-                if res:
-                    outurls.add(res)
-                else:
-                    print('Nothing for '+url)
-    return outurls
-
-
 if __name__ == '__main__':
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 4:
         outname = sys.argv[-1]
         inurl = sys.argv[-2]
-
-        rssUrl = getRssFromPageUrl(inurl)
+        rssornot = bool(sys.argv[-3])
+        if not rssornot:
+            rssUrl = getRssFromPageUrl(inurl)
+        else:
+            rssUrl = inurl
         ifurls = getUrlsFromRss(rssUrl)
         #ifurls = getUrlsFromThumbsInGallery(inurl)
 
