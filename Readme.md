@@ -1,11 +1,12 @@
-# Deviant Art download script
+# RSS image download script
 
-This is a script to create a list of links to images in deviantART galleries/favourites/(things with lots of pictures and a next button). It doesn't actually do the downloading itself because Python isn't the best tool for the job IMHO.
+This is a script to create a list of links to images in deviantART galleries/favourites/(things with lots of pictures and a next button) as well as any image RSS feed (such as those provided by Danbooru/ponibooru etc.). It doesn't actually do the downloading itself because Python isn't the best tool for the job IMHO and instead outputs a list of URLs.
 
 ## Requirements
 
-- [Python 3](http://www.python.org/)
+- [Python 3](http://www.python.org/) (Not sure, may be compatible with Python 2, not tested.)
 - [lxml](http://lxml.de/)
+- [feedparser](code.google.com/p/feedparser/)
 
 ## Usage
 
