@@ -12,6 +12,8 @@ from urllib.request import urlopen
 from lxml import html
 from lxml import etree
 
+import feedparser
+
 if __name__ == '__main__':
     printstuff = True
 else:
@@ -19,7 +21,55 @@ else:
 
 valimageres = [re.compile(r'https?://fc.*'), re.compile(r'https?://img\.ponibooru\.org.*')]
 dare = re.compile(r'.*deviantart\.com.*')
-urldomre = re.compile(r'[a-zA-Z]+://([a-zA-Z-\.])/')
+
+def getUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, fallbackToDownload=True):
+    nextUrl = feedurl
+    urls = set()
+    while nextUrl:
+        t = feedparser.parse(nextUrl)
+        if not da:
+            if printstuff:
+                print('Not using DeviantArt stuff...')
+            if imageType:
+                print('derp')
+            else:
+                [[urls.add(y['url']) for y in x.media_content] for x in t.entries]
+        else:
+            if printstuff:
+                print('Assuming DeviantArt...')
+            for x in t.entries:
+                url, imageurl, pageurl, downloadurl = False, False, False, False
+                for y in x.media_content:
+                    if y['medium']=='document':
+                        downloadurl = y['url']
+                    else:
+                        if y['medium']=='image':
+                            imageurl = y['url']
+                pageurl = [link['href'] for link in x.links if link['rel'] == 'alternate'][0]
+                if preferDownloads and downloadurl:
+                    url = downloadurl
+                elif imageurl:
+                    if validImageUrl(imageurl):
+                        url = imageurl
+                    else:
+                        url = getImageUrlFromPageUrl(pageurl)
+                        if downloadurl and fallbackToDownload and not url:
+                            url = downloadurl
+                else:
+                    url = getImageUrlFromPageUrl(pageurl)
+                
+                if url:
+                    urls.add(url)
+                else:
+                    if printstuff:
+                        print('No URL for '+x.title)
+                    print(url)
+                    print
+        try:
+            nextUrl = [link['href'] for link in t.channel.links if link['rel'] == 'next'][0]
+        except:
+            nextUrl = False
+    return list(urls)
 
 def validImageUrl(url):
     for imgre in valimageres:
@@ -27,17 +77,17 @@ def validImageUrl(url):
             return True
     return False
 
-def relToAbsUrl(inurl, relurl):
-    parsedin = list(urllib.parse.urlparse(inurl))
-    parsedin[2] = relurl
-    return parse.urlunparse(parsedin)
-
 def getRssFromPageUrl(url):
     x = html.document_fromstring(urlopen(url).read().decode('utf-8', 'ignore'))
-    return x.find('.//link[@rel="alternate"][@type="application/rss+xml"]').attrib['href']
+    try:
+        result = x.find('.//link[@rel="alternate"][@type="application/rss+xml"]').attrib['href']
+    except:
+        result = False
+    return result
 
-def getImageUrlFromPage(page):
+def getImageUrlFromPageUrl(pageurl):
     """Gets a deviantart image URL from a page returned by lxml."""
+    page = html.document_fromstring(urlopen(pageurl).read().decode('utf-8', 'ignore'))
     try:
         # This is the element id used for images you can expand.
         imgel = page.get_element_by_id('gmi-ResViewSizer_fullimg')
@@ -52,95 +102,19 @@ def getImageUrlFromPage(page):
     except:
         return False
 
-def getDownloadUrlFromPage(page):
-    """Gets a deviantart download URL from a page returned by lxml."""
-    try:
-        # This is the element id used for the download button.
-        return page.get_element_by_id('download-button').attrib['href']
-    except KeyError:
-        return False
-
-def getUrlFromItemElement(element, preferDownloads=False, daRss=False):
-    nsmap = element.getroottree().getroot().nsmap
-    pageUrl = element.find('./link').text
-    url = ''
-    if daRss:
-        if preferDownloads:
-            try:
-                url = element.find('./media:content[@medium="document"]', namespaces=nsmap).attrib['url']
-                return url
-            except:
-                try:
-                    url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
-                    if validImageUrl(url):
-                        return url
-                    else:
-                        page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
-                        url = getImageUrlFromPage(page)
-                        return url
-                except:
-                    page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
-                    url = getImageUrlFromPage(page)
-                    return url
-        else:
-            try:
-                url = element.find('./media:content[@medium="image"]', namespaces=nsmap).attrib['url']
-                if validImageUrl(url):
-                    return url
-                else:
-                    page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
-                    url = getImageUrlFromPage(page)
-                    return url
-            except:
-                page = html.document_fromstring(urlopen(pageUrl).read().decode('utf-8', 'ignore'))
-                url = getImageUrlFromPage(page)
-                return url
-    else:
-        try:
-            return element.find('./media:content', namespaces=nsmap).attrib['url']
-        except:
-            return False
-
-def getUrlsFromRss(inurl, preferDownloads=False):
-    ifurls = set()
-    nextUrl = inurl
-    pagenum = 0
-    daRss = bool(dare.match(inurl))
-    while nextUrl:
-        try:
-            rss = urlopen(nextUrl)
-        except:
-            print('Failed on '+nextUrl)
-            break
-        tree = etree.parse(rss)
-        root = tree.getroot()
-        channel = root.getchildren()[0]
-        nsmap = root.nsmap
-        items = channel.findall('./item', namespaces=nsmap)
-        for item in items:
-            url = getUrlFromItemElement(item, preferDownloads, daRss)
-            if url:
-                ifurls.add(url)
-            else:
-                print('No URL found for '+item.find('title').text)
-        try:
-            nextUrl = urllib.parse.urljoin(inurl, channel.find('atom:link[@rel="next"]', namespaces=nsmap).attrib['href'])
-        except:
-            nextUrl = ''
-        pagenum = pagenum + 1
-        print ('Page {0} done.'.format(pagenum))
-    return ifurls
-
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
         outname = sys.argv[-1]
         inurl = sys.argv[-2]
-        rssornot = bool(sys.argv[-3])
+        rssornot = bool(int(sys.argv[-3]))
+        preferDownloads = bool(int(sys.argv[-4]))
+        isDA = dare.match(inurl)
         if not rssornot:
             rssUrl = getRssFromPageUrl(inurl)
         else:
             rssUrl = inurl
-        ifurls = getUrlsFromRss(rssUrl)
+        ifurls = getUrlsFromFeed(feedurl=rssUrl, da=isDA, preferDownloads=preferDownloads)
+        #ifurls = getUrlsFromRss(rssUrl)
         #ifurls = getUrlsFromThumbsInGallery(inurl)
 
         outfile = open(sys.argv[-1], 'w')
@@ -148,9 +122,8 @@ if __name__ == '__main__':
         for url in ifurls:
             outfile.write(url+'\n')
         outfile.close()
-
-        print('Done.\n')
+        if printstuff:
+            print('Done.\n')
 
     else:
-        print('Usage: python3 DAownloader.py <Full DA URL (with http)> \
-        <where to store the image URL list>\n')
+        print("""Usage: python3 DAownloader.py <preferDownloads> <URL is RSS?> <Full URL (with http)> <where to store the image URL list>\n""")
