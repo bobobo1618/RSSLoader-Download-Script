@@ -83,7 +83,7 @@ def ariaUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, f
             if imageType:
                 print('derp')
             else:
-                [[s.addUri(y['url']) for y in x.media_content] for x in t.entries]
+                [[s.addUri([y['url']]) for y in x.media_content] for x in t.entries]
         else:
             if printstuff:
                 print('Assuming DeviantArt...')
@@ -109,7 +109,7 @@ def ariaUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, f
                     url = getImageUrlFromPageUrl(pageurl)
                 
                 if url:
-                    s.addUri(url)
+                    s.addUri([url])
                 else:
                     if printstuff:
                         print('No URL for '+x.title)
