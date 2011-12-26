@@ -7,6 +7,7 @@
 # Uses urllib for downloading, lxml for parsing and sys for command line 
 # arguments.
 import urllib, lxml, sys, re
+from xmlrpc import client
 from urllib.request import urlopen
 
 from lxml import html
@@ -60,6 +61,55 @@ def getUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, fa
                 
                 if url:
                     urls.add(url)
+                else:
+                    if printstuff:
+                        print('No URL for '+x.title)
+                    print(url)
+                    print
+        try:
+            nextUrl = [link['href'] for link in t.channel.links if link['rel'] == 'next'][0]
+        except:
+            nextUrl = False
+    return list(urls)
+
+def ariaUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, fallbackToDownload=True):
+    nextUrl = feedurl
+    s = client.ServerProxy('http://localhost:6800/rpc').aria2
+    while nextUrl:
+        t = feedparser.parse(nextUrl)
+        if not da:
+            if printstuff:
+                print('Not using DeviantArt stuff...')
+            if imageType:
+                print('derp')
+            else:
+                [[s.addUri(y['url']) for y in x.media_content] for x in t.entries]
+        else:
+            if printstuff:
+                print('Assuming DeviantArt...')
+            for x in t.entries:
+                url, imageurl, pageurl, downloadurl = False, False, False, False
+                for y in x.media_content:
+                    if y['medium']=='document':
+                        downloadurl = y['url']
+                    else:
+                        if y['medium']=='image':
+                            imageurl = y['url']
+                pageurl = [link['href'] for link in x.links if link['rel'] == 'alternate'][0]
+                if preferDownloads and downloadurl:
+                    url = downloadurl
+                elif imageurl:
+                    if validImageUrl(imageurl):
+                        url = imageurl
+                    else:
+                        url = getImageUrlFromPageUrl(pageurl)
+                        if downloadurl and fallbackToDownload and not url:
+                            url = downloadurl
+                else:
+                    url = getImageUrlFromPageUrl(pageurl)
+                
+                if url:
+                    s.addUri(url)
                 else:
                     if printstuff:
                         print('No URL for '+x.title)
