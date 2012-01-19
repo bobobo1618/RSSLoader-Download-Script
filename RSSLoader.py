@@ -163,7 +163,7 @@ def getImageUrlFromPageUrl(pageurl):
         return False
 
 if __name__ == '__main__':
-    if len(sys.argv) == 5:
+    if len(sys.argv) == 4:
         inurl = sys.argv[-1]
         rssornot = bool(int(sys.argv[-2]))
         preferDownloads = bool(int(sys.argv[-3]))
