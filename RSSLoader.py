@@ -34,7 +34,17 @@ def getUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, fa
             if imageType:
                 print('derp')
             else:
-                [[urls.add(y['url']) for y in x.media_content] for x in t.entries]
+                for x in t.entries:
+                    questionable = 0
+                    try:
+                        questionable = x.media_thumbnail[0]['url'] == "/questionable.png"
+                    except:
+                        print("Could not determine questionability.")
+                    try:
+                        for y in x.media_content:
+                            urls.add((y['url'], x.link, questionable))
+                    except:
+                        print ("URL Not found for item.")
         else:
             if printstuff:
                 print('Assuming DeviantArt...')
@@ -60,7 +70,7 @@ def getUrlsFromFeed(feedurl, da=False, preferDownloads=False, imageType=None, fa
                     url = getImageUrlFromPageUrl(pageurl)
                 
                 if url:
-                    urls.add(url)
+                    urls.add((url, pageurl, 0))
                 else:
                     if printstuff:
                         print('No URL for '+x.title)
@@ -154,10 +164,9 @@ def getImageUrlFromPageUrl(pageurl):
 
 if __name__ == '__main__':
     if len(sys.argv) == 5:
-        outname = sys.argv[-1]
-        inurl = sys.argv[-2]
-        rssornot = bool(int(sys.argv[-3]))
-        preferDownloads = bool(int(sys.argv[-4]))
+        inurl = sys.argv[-1]
+        rssornot = bool(int(sys.argv[-2]))
+        preferDownloads = bool(int(sys.argv[-3]))
         isDA = dare.match(inurl)
         if not rssornot:
             rssUrl = getRssFromPageUrl(inurl)
@@ -167,11 +176,18 @@ if __name__ == '__main__':
         #ifurls = getUrlsFromRss(rssUrl)
         #ifurls = getUrlsFromThumbsInGallery(inurl)
 
-        outfile = open(sys.argv[-1], 'w')
+        outfile = open('urls.txt', 'w')
         
         for url in ifurls:
-            outfile.write(url+'\n')
+            outfile.write(url[0]+'\n')
         outfile.close()
+
+        outfile = open('meta.txt', 'w')
+        
+        for url in ifurls:
+            outfile.write("{0}|{1}|{2}".format(urls[0], urls[1], urls[2])+'\n')
+        outfile.close()
+
         if printstuff:
             print('Done.\n')
 
